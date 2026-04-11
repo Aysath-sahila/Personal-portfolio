@@ -1,42 +1,52 @@
 <?php
-  /**
-  * Requires the "PHP Email Form" library
-  * The "PHP Email Form" library is available only in the pro version of the template
-  * The library should be uploaded to: vendor/php-email-form/php-email-form.php
-  * For more info and help: https://bootstrapmade.com/php-email-form/
-  */
+declare(strict_types=1);
 
-  // Replace contact@example.com with your real receiving email address
-  $receiving_email_address = 'contact@example.com';
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+  http_response_code(405);
+  exit('Method Not Allowed');
+}
 
-  if( file_exists($php_email_form = '../assets/vendor/php-email-form/php-email-form.php' )) {
-    include( $php_email_form );
-  } else {
-    die( 'Unable to load the "PHP Email Form" Library!');
-  }
+$receiving_email_address = 'aysathsahila@gmail.com';
 
-  $contact = new PHP_Email_Form;
-  $contact->ajax = true;
-  
-  $contact->to = $receiving_email_address;
-  $contact->from_name = $_POST['name'];
-  $contact->from_email = $_POST['email'];
-  $contact->subject = $_POST['subject'];
+$name = trim($_POST['name'] ?? '');
+$email = trim($_POST['email'] ?? '');
+$subject = trim($_POST['subject'] ?? '');
+$message = trim($_POST['message'] ?? '');
 
-  // Uncomment below code if you want to use SMTP to send emails. You need to enter your correct SMTP credentials
-  /*
-  $contact->smtp = array(
-    'host' => 'example.com',
-    'username' => 'example',
-    'password' => 'pass',
-    'port' => '587'
-  );
-  */
+if ($name === '' || $email === '' || $subject === '' || $message === '') {
+  http_response_code(400);
+  exit('Please fill in all required fields.');
+}
 
-  $contact->add_message( $_POST['name'], 'From');
-  $contact->add_message( $_POST['email'], 'Email');
-  isset($_POST['phone']) && $contact->add_message($_POST['phone'], 'Phone');
-  $contact->add_message( $_POST['message'], 'Message', 10);
+if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+  http_response_code(400);
+  exit('Please enter a valid email address.');
+}
 
-  echo $contact->send();
-?>
+$safe_name = preg_replace("/[\r\n]+/", ' ', $name);
+$safe_email = filter_var($email, FILTER_SANITIZE_EMAIL);
+$safe_subject = preg_replace("/[\r\n]+/", ' ', $subject);
+
+$mail_subject = 'Portfolio Contact: ' . $safe_subject;
+$mail_body = "You received a new message from your portfolio contact form.\n\n"
+  . "Name: {$safe_name}\n"
+  . "Email: {$safe_email}\n"
+  . "Subject: {$safe_subject}\n\n"
+  . "Message:\n{$message}\n";
+
+$headers = [
+  'MIME-Version: 1.0',
+  'Content-Type: text/plain; charset=UTF-8',
+  'From: Portfolio Contact <no-reply@localhost>',
+  'Reply-To: ' . $safe_email,
+  'X-Mailer: PHP/' . phpversion(),
+];
+
+$sent = mail($receiving_email_address, $mail_subject, $mail_body, implode("\r\n", $headers));
+
+if (!$sent) {
+  http_response_code(500);
+  exit('Message could not be sent. Make sure your site is hosted on a PHP server with mail support.');
+}
+
+exit('OK');
